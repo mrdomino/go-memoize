@@ -24,8 +24,8 @@ import (
 	"github.com/bradfitz/gomemcache/memcache"
 )
 
-// LocalCache is a test-only in-memory cache. Stores always succeed unless its
-// Full is set to true. Gets always succeed if there is an unexpired Item at
+// LocalCache is a test-only in-memory [Cache]. Stores always succeed unless
+// Full is set to true. Gets always succeed if there is an unexpired [Item] at
 // that key unless Down is set to true.
 type LocalCache struct {
 	lock sync.RWMutex
@@ -84,10 +84,12 @@ func (c *LocalCache) Get(key string) (*Item, error) {
 	return item, nil
 }
 
+// Now implements [time.Now] with the skew applied by [LocalCache.AdvanceTime].
 func (c *LocalCache) Now() time.Time {
 	return time.Now().Add(c.AdvancedTime)
 }
 
+// AdvanceTime advances this cache's clock by the passed duration.
 func (c *LocalCache) AdvanceTime(d time.Duration) {
 	c.AdvancedTime += d
 }

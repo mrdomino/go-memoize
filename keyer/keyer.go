@@ -34,26 +34,26 @@ type Keyer interface {
 // KeyFunc is an interface wrapper to allow using raw functions as Keyers.
 type KeyFunc func(context.Context, proto.Message) (string, error)
 
-// Key implements Keyer.Key for KeyFunc.
+// Key implements [keyer.Keyer.Key] for [KeyFunc].
 func (f KeyFunc) Key(ctx context.Context, m proto.Message) (string, error) {
 	return f(ctx, m)
 }
 
-// HashKeyer is the default Keyer used by go-memoize if one is not supplied. It
-// produces keys from a hash of a serialization of its input message.
+// HashKeyer is the default [Keyer] used by go-memoize if one is not supplied.
+// It produces keys from a hash of a serialization of its input message.
 //
-// Note that since [proto serialization is not canonical][0], this Keyer will
+// Note that since [proto serialization is not canonical], this [Keyer] will
 // not always produce the same keys for the same inputs, particularly across
 // different binaries or different schemas, particularly in the presence of
-// unknown fields. We try to mitigate this using the [Deterministic option][1]
-// on proto.MarshalOptions; see the documentation for the limitations of this.
+// unknown fields.
+// We try to mitigate this setting [proto.MarshalOptions.Deterministic].
+// See the documentation for the limitations of this.
 //
 // In general, if your application needs stronger canonicalization guarantees
 // than protobuf provides, then you should supply a custom Keyer instead of
 // using the default one.
 //
-// [0]: https://protobuf.dev/programming-guides/serialization-not-canonical/
-// [1]: https://pkg.go.dev/google.golang.org/protobuf/proto#MarshalOptions
+// [proto serialization is not canonical]: https://protobuf.dev/programming-guides/serialization-not-canonical/
 type HashKeyer struct {
 	marshal      proto.MarshalOptions
 	hashType     crypto.Hash
@@ -83,7 +83,8 @@ func WithGlobalPrefix(prefix string) HashKeyerOption {
 	}
 }
 
-// WithHash allows customizing the type of hash used; the default is SHA-1.
+// WithHash allows customizing the type of hash used; the default is
+// [crypto.SHA1].
 func WithHash(hashType crypto.Hash) HashKeyerOption {
 	return func(hk *HashKeyer) {
 		hk.hashType = hashType
@@ -102,7 +103,7 @@ func NewHashKeyer(opts ...HashKeyerOption) *HashKeyer {
 	return hk
 }
 
-// Key implements Keyer.Key for HashKeyer.
+// Key implements [keyer.Keyer.Key] for [HashKeyer].
 func (hk *HashKeyer) Key(_ context.Context, m proto.Message) (string, error) {
 	buf, err := hk.marshal.Marshal(m)
 	if err != nil {

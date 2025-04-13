@@ -23,8 +23,8 @@ limitations under the License.
 // about concurrency; multiple parallel calls with the same inputs will all go
 // to the underlying function until one of them returns. As well, in the vein
 // of generality, a default key function is provided for all proto messages,
-// even though [proto serialization is not canonical][0] so the same messages
-// will sometimes have different keys.
+// even though [proto serialization is not canonical] so the same messages will
+// sometimes have different keys.
 //
 // For best results, memoizing should be done "close to" requests, so e.g. on
 // the client rather than the server side, where it is more likely that all of
@@ -32,7 +32,7 @@ limitations under the License.
 // advantage that clients will talk directly to your memcached instance rather
 // than having to go through the server.
 //
-// [0]: https://protobuf.dev/programming-guides/serialization-not-canonical/
+// [proto serialization is not canonical]: https://protobuf.dev/programming-guides/serialization-not-canonical/
 package memoize
 
 import (
@@ -49,15 +49,15 @@ import (
 // gRPC RPC call.
 type Func[Req, Res proto.Message] func(context.Context, Req) (Res, error)
 
-// Wrap returns a memoized version of f, using the Cache c to store outputs for
-// previously seen inputs.
+// Wrap returns a memoized version of f, using the [Cache] c to store outputs
+// for previously seen inputs.
 func Wrap[T any, Req proto.Message, Res protoMessage[T]](
 	c Cache, f Func[Req, Res], opts ...Option,
 ) Func[Req, Res] {
 	return WrapWithMemoizer(New(c, opts...), f)
 }
 
-// WrapWithMemoizer returns a memoized version of f using the passed Memoizer.
+// WrapWithMemoizer returns a memoized version of f using the passed [Memoizer].
 func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 	m Memoizer, f Func[Req, Res],
 ) Func[Req, Res] {
@@ -121,7 +121,8 @@ func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 // Option customizes a memoizer's behavior.
 type Option func(*builder)
 
-// WithCustomKeyer allows supplying a completely custom Keyer for cache keys.
+// WithCustomKeyer allows supplying a completely custom [keyer.Keyer] for cache
+// keys.
 func WithCustomKeyer(k keyer.Keyer) Option {
 	return func(b *builder) {
 		b.keyer = k
@@ -141,7 +142,7 @@ func WithHashKeyerOpts(opts ...keyer.HashKeyerOption) Option {
 	}
 }
 
-// WithErrorHandler allows setting a custom error handler for this memoizer.
+// WithErrorHandler allows setting a custom [Errer] for this memoizer.
 func WithErrorHandler(errer Errer) Option {
 	return func(b *builder) {
 		b.errer = errer
@@ -172,16 +173,16 @@ func WithFlags(flags uint32) Option {
 // Memoizer is the interface required to provide memoization for functions in
 // this API. It consists of:
 //
-//  1. A Cache to store and retreive values.
-//  2. A Keyer to generate keys from inputs.
+//  1. A [Cache] to store and retreive values.
+//  2. A [keyer.Keyer] to generate keys from inputs.
 //
 // A Memoizer may additionally implement the following optional interfaces to
 // opt in to additional functionality:
 //
-//  1. HasErrer to receive non-fatal errors that may occur in memoization but
+//  1. [HasErrer] to receive non-fatal errors that may occur in memoization but
 //     that do not affect function outputs.
-//  2. Expirer to set expiration times on cache items.
-//  3. Flagger to set custom flags on cache items.
+//  2. [Expirer] to set expiration times on cache items.
+//  3. [Flagger] to set custom flags on cache items.
 type Memoizer interface {
 	Cache
 	keyer.Keyer
@@ -190,22 +191,23 @@ type Memoizer interface {
 // HasErrer is an Errer that is optionally enabled or not.
 type HasErrer interface {
 	Errer
+
 	// IsErrerEnabled returns true if this Errer is live and receiving errors;
 	// this allows e.g. a type to implement Errer but have it be conditional
 	// whether any individual instance should receive errors.
 	IsErrerEnabled() bool
 }
 
-// Expirer allows a Memoizer to set an expiration time on its cache entries
+// Expirer allows a [Memoizer] to set an expiration time on its cache entries
 // based on any of the context, the input, or the output. The format is that
-// used by memcache.Item; it supports either relative times in seconds up to
+// used by [memcache.Item]; it supports either relative times in seconds up to
 // one month, or an absolute Unix timestamp in seconds, with 0 for unlimited.
 type Expirer interface {
 	Expiration(_ context.Context, req, res proto.Message) int32
 }
 
-// Flagger allows a Memoizer to set custom flags on its cache entries based on
-// any of the content, the input, or the output.
+// Flagger allows a [Memoizer] to set custom flags on its cache entries based
+// on any of the content, the input, or the output.
 type Flagger interface {
 	Flags(_ context.Context, req, res proto.Message) uint32
 }
@@ -235,7 +237,7 @@ var (
 	_ HasErrer = (*memoizer)(nil)
 )
 
-// memoizer is the default Memoizer for this package.
+// memoizer is the default [Memoizer] for this package.
 type memoizer struct {
 	Cache
 	keyer.Keyer
@@ -244,7 +246,7 @@ type memoizer struct {
 	flags uint32
 }
 
-// builder accumulates build for a memoizer.
+// builder accumulates build options for [*memoizer].
 type builder struct {
 	keyer keyer.Keyer
 	errer Errer
@@ -254,7 +256,6 @@ type builder struct {
 	hashKeyerOpts []keyer.HashKeyerOption
 }
 
-// Expiration implements Expirer.Exipration for memoizer.
 func (m *memoizer) Expiration(_ context.Context, _, _ proto.Message) int32 {
 	if m.ttl == 0 {
 		return 0
@@ -262,17 +263,14 @@ func (m *memoizer) Expiration(_ context.Context, _, _ proto.Message) int32 {
 	return int32(time.Now().Add(m.ttl).Unix())
 }
 
-// Flags implements Flagger.Flags for memoizer.
 func (m *memoizer) Flags(_ context.Context, _, _ proto.Message) uint32 {
 	return m.flags
 }
 
-// IsErrerEnabled implements HasErrer.IsErrerEnabled for memoizer.
 func (m *memoizer) IsErrerEnabled() bool {
 	return m.errer != nil
 }
 
-// Error implements Errer.Error for memoizer.
 func (m *memoizer) Error(err error) {
 	m.errer.Error(err)
 }

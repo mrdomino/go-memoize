@@ -26,21 +26,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// CacheInterceptor is a grpc.UnaryClientInterceptor that memoizes RPCs on the
-// client side, having clients talk straight to the cache instead of the server.
+// CacheInterceptor is a [grpc.UnaryClientInterceptor] that memoizes RPCs on
+// the client side with the given [Cache], having clients talk straight to the
+// cache instead of the server.
 //
-// Note that the HashKeyer will be constructed with type prefixes on by default,
-// and this behavior must be explicitly disabled if it is not desired.
+// Note that the [keyer.HashKeyer] will be constructed with type prefixes on by
+// default, and this behavior must be explicitly disabled if it is not desired.
 func CacheInterceptor(cache Cache, opts ...Option) grpc.UnaryClientInterceptor {
 	opts = append([]Option{WithHashKeyerOpts(keyer.WithTypePrefix(true))}, opts...)
 	return Interceptor(New(cache, opts...))
 }
 
-// Interceptor is a grpc.UnaryClientInterceptor that memoizes RPCs client-side
-// using the passed Memoizer.
+// Interceptor is a [grpc.UnaryClientInterceptor] that memoizes RPCs
+// client-side using the passed [Memoizer].
 //
-// It is strongly encouraged for the Memoizer to take care to produce different
-// keys for different input types.
+// It is strongly encouraged for the [Memoizer] to take care to produce
+// different keys for different input types.
 func Interceptor(m Memoizer, opts ...Option) grpc.UnaryClientInterceptor {
 	// We cannot use generics in this context since the types are not knowable at
 	// compile time, so we write a whole new wrapper.

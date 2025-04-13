@@ -28,7 +28,7 @@ var (
 	ErrNotStored = memcache.ErrNotStored
 )
 
-// Cache implements a minimal subset of memcache.Client for use elsewhere in
+// Cache implements a minimal subset of [memcache.Client] for use elsewhere in
 // this library.
 type Cache interface {
 	Add(*Item) error
