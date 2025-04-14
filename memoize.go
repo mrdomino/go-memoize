@@ -111,7 +111,7 @@ func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 			m, key, res,
 			expiration(ctx, req, res),
 			flags(ctx, req, res),
-		); err != nil {
+		); err != nil && !errors.Is(err, ErrNotStored) {
 			errorf("AddProto(%q): %w", key, err)
 		}
 		return

@@ -17,10 +17,10 @@ limitations under the License.
 package memoize
 
 // Errer receives non-fatal errors that can occur in the memoization logic but
-// that do not affect function outputs. It does not receive ErrCacheMiss, but
-// otherwise if anything goes wrong in the cache retreival or storage, or proto
-// serialization or deserialization, it will be reported for either recovery or
-// logging.
+// that do not affect function outputs. It does not receive ErrCacheMiss or
+// ErrNotStored, but otherwise if anything goes wrong with cache retreival
+// or storage, or with proto serialization or deserialization, it will be
+// reported for either recovery or logging.
 type Errer interface {
 	Error(error)
 }

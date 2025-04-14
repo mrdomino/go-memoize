@@ -23,7 +23,10 @@ import (
 
 type Item = memcache.Item
 
-var ErrCacheMiss = memcache.ErrCacheMiss
+var (
+	ErrCacheMiss = memcache.ErrCacheMiss
+	ErrNotStored = memcache.ErrNotStored
+)
 
 // Cache implements a minimal subset of memcache.Client for use elsewhere in
 // this library.
