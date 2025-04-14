@@ -211,6 +211,14 @@ func New(c Cache, opts ...Option) *memoizer {
 	}
 }
 
+var (
+	_ Memoizer = (*memoizer)(nil)
+	_ Expirer  = (*memoizer)(nil)
+	_ Flagger  = (*memoizer)(nil)
+	_ HasErrer = (*memoizer)(nil)
+)
+
+// memoizer is the default Memoizer for this package.
 type memoizer struct {
 	Cache
 	keyer.Keyer
@@ -219,12 +227,15 @@ type memoizer struct {
 	flags uint32
 }
 
-var (
-	_ Memoizer = (*memoizer)(nil)
-	_ Expirer  = (*memoizer)(nil)
-	_ Flagger  = (*memoizer)(nil)
-	_ HasErrer = (*memoizer)(nil)
-)
+// builder accumulates build for a memoizer.
+type builder struct {
+	keyer keyer.Keyer
+	errer Errer
+	ttl   time.Duration
+	flags uint32
+
+	hashKeyerOpts []keyer.HashKeyerOption
+}
 
 // Expiration implements Expirer.Exipration for memoizer.
 func (m *memoizer) Expiration(_ context.Context, _, _ proto.Message) int32 {
@@ -247,15 +258,6 @@ func (m *memoizer) IsErrerEnabled() bool {
 // Error implements Errer.Error for memoizer.
 func (m *memoizer) Error(err error) {
 	m.errer.Error(err)
-}
-
-type builder struct {
-	keyer keyer.Keyer
-	errer Errer
-	ttl   time.Duration
-	flags uint32
-
-	hashKeyerOpts []keyer.HashKeyerOption
 }
 
 // protoMessage is an implementation detail; it allows us to instantiate a new
