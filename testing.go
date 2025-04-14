@@ -20,6 +20,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/bradfitz/gomemcache/memcache"
 )
 
 // LocalCache is a test-only in-memory cache. Stores always succeed unless its
@@ -50,6 +52,9 @@ func (c *LocalCache) Add(item *Item) error {
 	}
 	if item.Expiration != 0 && item.Expiration <= int32((24*time.Hour*31).Seconds()) {
 		item.Expiration = int32(c.Now().Add(time.Duration(item.Expiration) * time.Second).Unix())
+	}
+	if old, ok := c.data[item.Key]; ok && (old.Expiration == 0 || !time.Unix(int64(old.Expiration), 0).Before(c.Now())) {
+		return memcache.ErrNotStored
 	}
 	c.data[item.Key] = item
 	return nil
