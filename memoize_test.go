@@ -218,3 +218,38 @@ func TestWrap_MultipleTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestWrap_Concurrency(t *testing.T) {
+	// This basically just shows that we do not do any in-progress-operation
+	// tracking.
+	ctx := t.Context()
+	seq1 := make(chan struct{})
+	seq2 := make(chan struct{})
+	origFunc := func(context.Context, *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
+		<-seq1
+		seq2 <- struct{}{}
+		return wrapperspb.String(""), nil
+	}
+	cache := NewLocalCache()
+	memo := Wrap(cache, origFunc)
+	go memo(ctx, nil)
+	seq1 <- struct{}{}
+	for range 8 {
+		go memo(ctx, nil)
+	}
+	for range 8 {
+		seq1 <- struct{}{}
+	}
+	go func() {
+		memo(ctx, nil)
+		close(seq2)
+	}()
+	seq1 <- struct{}{}
+	var calls int
+	for range seq2 {
+		calls += 1
+	}
+	assert.Equal(t, calls, 10)
+	memo(ctx, nil)
+	assert.Equal(t, calls, 10)
+}
