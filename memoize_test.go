@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrdomino/go-memoize/keyer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -174,4 +175,46 @@ func TestWrap_KeyFunc(t *testing.T) {
 	item, ok := cache.data["custom key"]
 	require.Truef(t, ok, "custom key not in map")
 	require.Equal(t, []uint8(nil), item.Value)
+}
+
+func TestWrap_MultipleTypes(t *testing.T) {
+	tests := []struct {
+		name       string
+		typePrefix bool
+	}{
+		{
+			name:       "no type prefix breaks",
+			typePrefix: false,
+		},
+		{
+			name:       "type prefix works",
+			typePrefix: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			func1 := func(context.Context, *wrapperspb.BoolValue) (*wrapperspb.StringValue, error) {
+				return wrapperspb.String("Hello, world"), nil
+			}
+			func2 := func(context.Context, *wrapperspb.UInt64Value) (*wrapperspb.BoolValue, error) {
+				return wrapperspb.Bool(true), nil
+			}
+			cache := NewLocalCache()
+			m := New(cache, WithHashKeyerOpts(keyer.WithTypePrefix(tt.typePrefix)))
+			memo1 := WrapWithMemoizer(m, func1)
+			memo2 := WrapWithMemoizer(m, func2)
+			ctx := t.Context()
+			res, err := memo1(ctx, wrapperspb.Bool(true))
+			require.NoError(t, err)
+			assert.Equal(t, "Hello, world", res.GetValue())
+			res2, err := memo2(ctx, wrapperspb.UInt64(1))
+			require.NoError(t, err)
+			if tt.typePrefix {
+				assert.Equal(t, true, res2.GetValue())
+			} else {
+				// XXX
+				assert.Equal(t, false, res2.GetValue())
+			}
+		})
+	}
 }
