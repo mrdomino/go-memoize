@@ -1,0 +1,177 @@
+/*
+Copyright 2025 Steven Dee
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package memoize
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+)
+
+func calledFunc() (*int, func(context.Context, *wrapperspb.UInt64Value) (*wrapperspb.StringValue, error)) {
+	var calls int
+	return &calls, func(ctx context.Context, req *wrapperspb.UInt64Value) (*wrapperspb.StringValue, error) {
+		calls += 1
+		return wrapperspb.String(strconv.FormatUint(req.GetValue(), 10)), nil
+	}
+}
+
+func TestWrap(t *testing.T) {
+	ctx := t.Context()
+	cache := NewLocalCache()
+	calls, origFunc := calledFunc()
+	var res *wrapperspb.StringValue
+	var err error
+
+	memo := Wrap(cache, origFunc)
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, 1, *calls)
+	assert.Equal(t, "1", res.GetValue())
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, 1, *calls)
+	assert.Equal(t, "1", res.GetValue())
+	res, err = memo(ctx, wrapperspb.UInt64(2))
+	require.NoError(t, err)
+	assert.Equal(t, 2, *calls)
+	assert.Equal(t, "2", res.GetValue())
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, 2, *calls)
+	assert.Equal(t, "1", res.GetValue())
+}
+
+func TestWrap_TTL(t *testing.T) {
+	ctx := t.Context()
+	cache := NewLocalCache()
+	calls, origFunc := calledFunc()
+	var err error
+
+	memo := Wrap(cache, origFunc, WithTTL(time.Hour))
+	_, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	cache.AdvanceTime(time.Hour + 1)
+	_, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, 2, *calls)
+}
+
+func TestWrap_KeyError(t *testing.T) {
+	ctx := t.Context()
+	cache := NewLocalCache()
+	calls, origFunc := calledFunc()
+	var errs []error
+	var res *wrapperspb.StringValue
+	var err error
+
+	memo := Wrap(cache, origFunc,
+		WithErrorFunc(func(err error) {
+			errs = append(errs, err)
+		}),
+		WithCustomKeyFunc(func(ctx context.Context, m proto.Message) (string, error) {
+			return "", errors.ErrUnsupported
+		}),
+	)
+
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, 1, *calls)
+	assert.Equal(t, "1", res.GetValue())
+	assert.Len(t, errs, 1)
+	assert.ErrorIs(t, errs[0], errors.ErrUnsupported)
+
+	errs = nil
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, 2, *calls)
+	assert.Equal(t, "1", res.GetValue())
+	assert.Len(t, errs, 1)
+	assert.ErrorIs(t, errs[0], errors.ErrUnsupported)
+}
+
+func TestWrap_Errors(t *testing.T) {
+	tests := []struct {
+		name     string
+		getErr   bool
+		addErr   bool
+		wantErrs []string
+	}{
+		{
+			name:     "cache.Get error is reported",
+			getErr:   true,
+			wantErrs: []string{"GetProto"},
+		},
+		{
+			name:     "cache.Add error is reported",
+			addErr:   true,
+			wantErrs: []string{"AddProto"},
+		},
+		{
+			name:     "add & get errors are reported",
+			addErr:   true,
+			getErr:   true,
+			wantErrs: []string{"GetProto", "AddProto"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origFunc := func(context.Context, *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
+				return nil, nil
+			}
+			var errs []error
+			cache := NewLocalCache()
+			if tt.getErr {
+				cache.Down = true
+			}
+			if tt.addErr {
+				cache.Full = true
+			}
+			memo := Wrap(cache, origFunc, WithErrorFunc(func(err error) {
+				errs = append(errs, err)
+			}))
+			_, err := memo(t.Context(), nil)
+			require.NoError(t, err)
+			require.Len(t, errs, len(tt.wantErrs))
+			for i, err := range errs {
+				assert.Contains(t, err.Error(), tt.wantErrs[i])
+			}
+		})
+	}
+}
+
+func TestWrap_KeyFunc(t *testing.T) {
+	cache := NewLocalCache()
+	origFunc := func(context.Context, *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
+		return nil, nil
+	}
+	memo := Wrap(cache, origFunc, WithCustomKeyFunc(func(ctx context.Context, m proto.Message) (string, error) {
+		return "custom key", nil
+	}))
+	memo(t.Context(), wrapperspb.String(""))
+	assert.Len(t, cache.data, 1)
+	item, ok := cache.data["custom key"]
+	require.Truef(t, ok, "custom key not in map")
+	require.Equal(t, []uint8(nil), item.Value)
+}
