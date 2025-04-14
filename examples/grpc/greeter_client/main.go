@@ -27,6 +27,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/mrdomino/go-memoize"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
@@ -39,12 +41,32 @@ const (
 var (
 	addr = flag.String("addr", "localhost:50051", "the address to connect to")
 	name = flag.String("name", defaultName, "Name to greet")
+
+	memcacheAddr = flag.String("memcache_addr", "", "memcache server address")
 )
+
+func init() {
+	memoize.ErrorHandler = memoize.ErrFunc(func(err error) {
+		log.Printf("ERROR: %v", err)
+	})
+}
 
 func main() {
 	flag.Parse()
+
+	var cache memoize.Cache = &memoize.NilCache{}
+	if *memcacheAddr != "" {
+		client := memcache.New(*memcacheAddr)
+		if err := client.Ping(); err != nil {
+			log.Fatalf("memcache.Ping(%q): %v", *memcacheAddr, err)
+		}
+		cache = client
+	}
 	// Set up a connection to the server.
-	conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(*addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(memoize.Intercept(cache)),
+	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
