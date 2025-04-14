@@ -16,6 +16,23 @@ limitations under the License.
 
 // Package memoize implements simple function memoization for protobuf messages
 // using a memcache-like cache.
+//
+// This package favors simplicity and generality over maximal deduplication of
+// work; in many common cases, there will be more calls to the underlying
+// function than strictly necessary. For instance, this package does nothing
+// about concurrency; multiple parallel calls with the same inputs will all go
+// to the underlying function until one of them returns. As well, in the vein
+// of generality, a default key function is provided for all proto messages,
+// even though [proto serialization is not canonical][0] so the same messages
+// will sometimes have different keys.
+//
+// For best results, memoizing should be done "close to" requests, so e.g. on
+// the client rather than the server side, where it is more likely that all of
+// the relevant fields to the request will be accounted for. This also has the
+// advantage that clients will talk directly to your memcached instance rather
+// than having to go through the server.
+//
+// [0]: https://protobuf.dev/programming-guides/serialization-not-canonical/
 package memoize
 
 import (

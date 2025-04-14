@@ -83,8 +83,7 @@ func WithGlobalPrefix(prefix string) HashKeyerOption {
 	}
 }
 
-// WithHash allows customizing the type of hash used; otherwise the default is
-// SHA-1.
+// WithHash allows customizing the type of hash used; the default is SHA-1.
 func WithHash(hashType crypto.Hash) HashKeyerOption {
 	return func(hk *HashKeyer) {
 		hk.hashType = hashType
