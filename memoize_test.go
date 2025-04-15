@@ -253,3 +253,17 @@ func TestWrap_Concurrency(t *testing.T) {
 	memo(ctx, nil)
 	assert.Equal(t, calls, 10)
 }
+
+func BenchmarkWrap(b *testing.B) {
+	myFunc := func(_ context.Context, n *wrapperspb.UInt64Value) (*wrapperspb.UInt64Value, error) {
+		return n, nil
+	}
+	cache := NewLocalCache()
+	memo := Wrap(cache, myFunc)
+	ctx := b.Context()
+	n := wrapperspb.UInt64(1)
+	memo(ctx, n)
+	for b.Loop() {
+		memo(ctx, n)
+	}
+}
