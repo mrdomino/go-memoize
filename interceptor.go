@@ -26,23 +26,24 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// CacheInterceptor is a [grpc.UnaryClientInterceptor] that memoizes RPCs on
-// the client side with the given [Cache], having clients talk straight to the
-// cache instead of the server.
+// Intercept is a [grpc.UnaryClientInterceptor] that memoizes gRPC clients.
+// It uses the passed [Cache] with a package-default memoizer (see [New].)
 //
-// Note that the [keyer.HashKeyer] will be constructed with type prefixes on by
-// default, and this behavior must be explicitly disabled if it is not desired.
-func CacheInterceptor(cache Cache, opts ...Option) grpc.UnaryClientInterceptor {
+// Note that the [keyer.HashKeyer] will be constructed the option
+// [keyer.WithTypePrefix] set to true by default, as otherwise it is quite
+// common for protobuf messages of different types to share the same
+// serialization and therefore cache key.
+func Intercept(cache Cache, opts ...Option) grpc.UnaryClientInterceptor {
 	opts = append([]Option{WithHashKeyerOpts(keyer.WithTypePrefix(true))}, opts...)
-	return Interceptor(New(cache, opts...))
+	return InterceptWithMemoizer(New(cache, opts...))
 }
 
-// Interceptor is a [grpc.UnaryClientInterceptor] that memoizes RPCs
-// client-side using the passed [Memoizer].
+// InterceptWithMemoizer is a [grpc.UnaryClientInterceptor] that memoizes gRPC
+// clients with the passed [Memoizer].
 //
 // It is strongly encouraged for the [Memoizer] to take care to produce
 // different keys for different input types.
-func Interceptor(m Memoizer, opts ...Option) grpc.UnaryClientInterceptor {
+func InterceptWithMemoizer(m Memoizer) grpc.UnaryClientInterceptor {
 	// We cannot use generics in this context since the types are not knowable at
 	// compile time, so we write a whole new wrapper.
 	expiration := func(_ context.Context, _, _ proto.Message) int32 {
@@ -109,7 +110,7 @@ func Interceptor(m Memoizer, opts ...Option) grpc.UnaryClientInterceptor {
 			m, key, protoReply,
 			expiration(ctx, protoReq, protoReply),
 			flags(ctx, protoReq, protoReply),
-		); err != nil {
+		); err != nil && !errors.Is(err, ErrNotStored) {
 			errorf("AddProto(%q): %w", key, err)
 		}
 		return nil

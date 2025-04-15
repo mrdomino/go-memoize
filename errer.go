@@ -38,5 +38,9 @@ func (f ErrFunc) Error(err error) {
 // default. If it is set to non-nil, and there is not a custom [Errer]
 // configured for a given [Memoizer], then it will receive all non-fatal
 // errors. E.g. it may make sense to wire this up to a custom log.Errorf
-// function, or even simply `log.Printf("ERROR: %v", err)`.
+// function, or even simply:
+//
+//	memoize.ErrorHandler = func(err error) {
+//	    log.Printf("ERROR: %v", err)
+//	}
 var ErrorHandler Errer

@@ -18,19 +18,28 @@ limitations under the License.
 // using a memcache-like cache.
 //
 // This package favors simplicity and generality over maximal deduplication of
-// work; in many common cases, there will be more calls to the underlying
+// work — in many common cases, there will be more calls to the underlying
 // function than strictly necessary. For instance, this package does nothing
-// about concurrency; multiple parallel calls with the same inputs will all go
+// about concurrency: multiple parallel calls with the same inputs will all go
 // to the underlying function until one of them returns. As well, in the vein
 // of generality, a default key function is provided for all proto messages,
 // even though [proto serialization is not canonical] so the same messages will
 // sometimes have different keys.
 //
-// For best results, memoizing should be done "close to" requests, so e.g. on
+// For best results, memoizing should be done “close to” requests — so e.g. on
 // the client rather than the server side, where it is more likely that all of
 // the relevant fields to the request will be accounted for. This also has the
 // advantage that clients will talk directly to your memcached instance rather
-// than having to go through the server.
+// than having to go through a gRPC server.
+//
+// The main API exported by this package is [Wrap]. This function is well-suited
+// to gRPC servers, and is in fact shaped the same way as a gRPC RPC modulo
+// the target. [Wrap] uses a package-default memoizer constructed via [New]; if
+// a custom [Memoizer] is desired, then [WrapWithMemoizer] may be used instead.
+//
+// A client-side [grpc.UnaryInterceptor] is also exported as [Intercept], which
+// corresponds to [Wrap]; or [InterceptWithMemoizer], which corresponds to
+// [WrapWithMemoizer].
 //
 // [proto serialization is not canonical]: https://protobuf.dev/programming-guides/serialization-not-canonical/
 package memoize
@@ -45,12 +54,30 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Func is the basic unit that is memoized by this package. It is shaped like a
-// gRPC RPC call.
+// Func is the basic unit that is memoized by this package.
+// It is shaped like a gRPC RPC call but without the target.
 type Func[Req, Res proto.Message] func(context.Context, Req) (Res, error)
 
-// Wrap returns a memoized version of f, using the [Cache] c to store outputs
-// for previously seen inputs.
+// Wrap returns a memoized version of the [Func] f using the [Cache] c.
+// The type should normally be inferred; for example, given:
+//
+//	var myFunc func(ctx context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
+//
+// Rpc can be memoized by simply saying:
+//
+//	memo := Wrap(myMemcache, myFunc)
+//
+// The returned memo function will have the [Func] type:
+//
+//	Func[*pb.RpcRequest, *pb.RpcReply]
+//
+// which corresponds to the raw type:
+//
+//	func(context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
+//
+// The extra T generic parameter and protoMessage[T] is simply a way of getting
+// at the underlying concrete type of a [proto.Message] to construct an output
+// value with new; otherwise, Go’s [reflect] API would have to be used.
 func Wrap[T any, Req proto.Message, Res protoMessage[T]](
 	c Cache, f Func[Req, Res], opts ...Option,
 ) Func[Req, Res] {
@@ -118,7 +145,7 @@ func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 	}
 }
 
-// Option customizes a memoizer's behavior.
+// Option customizes a memoizer’s behavior.
 type Option func(*builder)
 
 // WithCustomKeyer allows supplying a completely custom [keyer.Keyer] for cache
@@ -134,8 +161,9 @@ func WithCustomKeyFunc(f func(context.Context, proto.Message) (string, error)) O
 	return WithCustomKeyer(keyer.KeyFunc(f))
 }
 
-// WithHashKeyerOpts allows overriding the options passed to the default
-// HashKeyer that is constructed if no other Keyer or KeyFunc is passed.
+// WithHashKeyerOpts appends to the options passed to the default
+// [keyer.HashKeyer] that is constructed if no other [keyer.Keyer] or
+// [keyer.KeyFunc] is passed.
 func WithHashKeyerOpts(opts ...keyer.HashKeyerOption) Option {
 	return func(b *builder) {
 		b.hashKeyerOpts = append(b.hashKeyerOpts, opts...)
@@ -198,21 +226,22 @@ type HasErrer interface {
 	IsErrerEnabled() bool
 }
 
-// Expirer allows a [Memoizer] to set an expiration time on its cache entries
-// based on any of the context, the input, or the output. The format is that
-// used by [memcache.Item]; it supports either relative times in seconds up to
-// one month, or an absolute Unix timestamp in seconds, with 0 for unlimited.
+// Expirer returns the expiration time for the cache entry corresponding to
+// the passed context, and request/result messages, in the format expected by
+// [Item]. That is: “the cache expiration time, in seconds: either a relative
+// time from now (up to 1 month), or an absolute Unix epoch time. Zero means
+// […] no expiration time.”
 type Expirer interface {
 	Expiration(_ context.Context, req, res proto.Message) int32
 }
 
-// Flagger allows a [Memoizer] to set custom flags on its cache entries based
-// on any of the content, the input, or the output.
+// Flagger sets custom flags on cache entries, corresponding to the Flags field
+// on [Item].
 type Flagger interface {
 	Flags(_ context.Context, req, res proto.Message) uint32
 }
 
-// New constructs a new memoizer with the given options.
+// New constructs a new package-default memoizer with the given [Option] slice.
 func New(c Cache, opts ...Option) *memoizer {
 	b := &builder{}
 	for _, opt := range opts {

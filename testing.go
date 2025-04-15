@@ -89,7 +89,7 @@ func (c *LocalCache) Now() time.Time {
 	return time.Now().Add(c.AdvancedTime)
 }
 
-// AdvanceTime advances this cache's clock by the passed duration.
+// AdvanceTime advances this cache’s clock by the passed duration.
 func (c *LocalCache) AdvanceTime(d time.Duration) {
 	c.AdvancedTime += d
 }
