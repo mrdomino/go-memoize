@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package keyer implements a non-canonical [proto.Message] to string transform
-// that is meant to be suitable for use as a cache key.
+// Package keyer provides an interface for [proto.Message] to string transforms
+// intended to be used as cache keys. It also provides a default non-canonical
+// string transform that may be used if no other [Keyer] is provided.
 package keyer
 
 import (
@@ -36,7 +37,7 @@ type Keyer interface {
 // KeyFunc is an interface wrapper to allow using raw functions as Keyers.
 type KeyFunc func(context.Context, proto.Message) (string, error)
 
-// Key implements [keyer.Keyer.Key] for [KeyFunc].
+// Key implements [Keyer] for [KeyFunc].
 func (f KeyFunc) Key(ctx context.Context, m proto.Message) (string, error) {
 	return f(ctx, m)
 }
@@ -52,7 +53,7 @@ func (f KeyFunc) Key(ctx context.Context, m proto.Message) (string, error) {
 // See the documentation for the limitations of this.
 //
 // In general, if your application needs stronger canonicalization guarantees
-// than protobuf provides, then you should supply a custom Keyer instead of
+// than protobuf provides, then you should supply a custom [Keyer] instead of
 // using the default one.
 //
 // [proto serialization is not canonical]: https://protobuf.dev/programming-guides/serialization-not-canonical/
@@ -105,7 +106,7 @@ func NewHashKeyer(opts ...HashKeyerOption) *HashKeyer {
 	return hk
 }
 
-// Key implements [keyer.Keyer.Key] for [HashKeyer].
+// Key implements [Keyer] for [HashKeyer].
 func (hk *HashKeyer) Key(_ context.Context, m proto.Message) (string, error) {
 	buf, err := hk.marshal.Marshal(m)
 	if err != nil {
