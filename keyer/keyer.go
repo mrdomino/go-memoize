@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package keyer implements a non-canonical [proto.Message] to string transform
+// that is meant to be suitable for use as a cache key.
 package keyer
 
 import (
