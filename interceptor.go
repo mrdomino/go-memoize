@@ -44,8 +44,9 @@ func Intercept(cache Cache, opts ...Option) grpc.UnaryClientInterceptor {
 // It is strongly encouraged for the [Memoizer] to take care to produce
 // different keys for different input types.
 func InterceptWithMemoizer(m Memoizer) grpc.UnaryClientInterceptor {
-	// We cannot use generics in this context since the types are not knowable at
-	// compile time, so we write a whole new wrapper.
+	// gRPC client interceptors use a different interface from that of servers,
+	// taking their reply as an input argument rather than producing it as a
+	// return value, so Wrap does not quite work here.
 	expiration := func(_ context.Context, _, _ proto.Message) int32 {
 		return 0
 	}
