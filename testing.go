@@ -19,6 +19,7 @@ package memoize
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
@@ -28,12 +29,12 @@ import (
 // Full is set to true. Gets always succeed if there is an unexpired [Item] at
 // that key unless Down is set to true.
 type LocalCache struct {
+	Full, Down atomic.Bool
+
+	advancedTime time.Duration
+
 	lock sync.RWMutex
 	data map[string]*Item
-
-	Full, Down bool
-
-	AdvancedTime time.Duration
 }
 
 var _ Cache = (*LocalCache)(nil)
@@ -45,14 +46,14 @@ func NewLocalCache() *LocalCache {
 }
 
 func (c *LocalCache) Add(item *Item) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.Full {
+	if c.Full.Load() {
 		return errors.ErrUnsupported
 	}
 	if item.Expiration != 0 && item.Expiration <= int32((24*time.Hour*31).Seconds()) {
 		item.Expiration = int32(c.Now().Add(time.Duration(item.Expiration) * time.Second).Unix())
 	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if old, ok := c.data[item.Key]; ok && (old.Expiration == 0 || !time.Unix(int64(old.Expiration), 0).Before(c.Now())) {
 		return memcache.ErrNotStored
 	}
@@ -61,11 +62,10 @@ func (c *LocalCache) Add(item *Item) error {
 }
 
 func (c *LocalCache) Get(key string) (*Item, error) {
-	c.lock.RLock()
-	if c.Down {
-		c.lock.RUnlock()
+	if c.Down.Load() {
 		return nil, errors.ErrUnsupported
 	}
+	c.lock.RLock()
 	item, ok := c.data[key]
 	c.lock.RUnlock()
 	if !ok {
@@ -86,12 +86,16 @@ func (c *LocalCache) Get(key string) (*Item, error) {
 
 // Now implements [time.Now] with the skew applied by [LocalCache.AdvanceTime].
 func (c *LocalCache) Now() time.Time {
-	return time.Now().Add(c.AdvancedTime)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return time.Now().Add(c.advancedTime)
 }
 
 // AdvanceTime advances this cache’s clock by the passed duration.
 func (c *LocalCache) AdvanceTime(d time.Duration) {
-	c.AdvancedTime += d
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.advancedTime += d
 }
 
 // NilCache is a cache that never stores or retrieves anything.

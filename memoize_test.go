@@ -144,10 +144,10 @@ func TestWrap_Errors(t *testing.T) {
 			var errs []error
 			cache := NewLocalCache()
 			if tt.getErr {
-				cache.Down = true
+				cache.Down.Store(true)
 			}
 			if tt.addErr {
-				cache.Full = true
+				cache.Full.Store(true)
 			}
 			memo := Wrap(cache, origFunc, WithErrorFunc(func(err error) {
 				errs = append(errs, err)
