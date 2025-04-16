@@ -59,11 +59,20 @@ import (
 type Func[Req, Res proto.Message] func(context.Context, Req) (Res, error)
 
 // Wrap returns a memoized version of the [Func] f using the [Cache] c.
+// The type should normally be inferred; for further discussion, see the comment
+// for [WrapWithMemoizer].
+func Wrap[T any, Req proto.Message, Res protoMessage[T]](
+	c Cache, f Func[Req, Res], opts ...Option,
+) Func[Req, Res] {
+	return WrapWithMemoizer(New(c, opts...), f)
+}
+
+// WrapWithMemoizer returns a memoized version of f using the passed [Memoizer].
 // The type should normally be inferred; for example, given:
 //
 //	var myFunc func(ctx context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
 //
-// Rpc can be memoized by simply saying:
+// MyFunc can be memoized by simply saying:
 //
 //	memo := Wrap(myMemcache, myFunc)
 //
@@ -75,16 +84,33 @@ type Func[Req, Res proto.Message] func(context.Context, Req) (Res, error)
 //
 //	func(context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
 //
-// The extra T generic parameter and protoMessage[T] is simply a way of getting
-// at the underlying concrete type of a [proto.Message] to construct an output
-// value with new; otherwise, Go’s [reflect] API would have to be used.
-func Wrap[T any, Req proto.Message, Res protoMessage[T]](
-	c Cache, f Func[Req, Res], opts ...Option,
-) Func[Req, Res] {
-	return WrapWithMemoizer(New(c, opts...), f)
-}
-
-// WrapWithMemoizer returns a memoized version of f using the passed [Memoizer].
+// This is the same type as that of a gRPC server function with request type
+// RpcRequest and reply type RpcReply. As such, it should be relatively simple
+// to use these wrappers in gRPC server contexts, like so:
+//
+//	type Server struct {
+//	    pb.UnimplementedFooServer
+//	    memoSayHello memoize.Func[*pb.HelloRequest, *pb.HelloReply]
+//	}
+//
+//	func New(cache memoize.Cache) *Server {
+//	    s := &Server{}
+//	    s.memoSayHello = Wrap(cache, func(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+//	        return s.SayHello_Raw(ctx, in)
+//	    })
+//
+//	func (s *Server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+//	    return s.memoSayHello(ctx, in)
+//	}
+//
+//	func (s *Server) SayHello_Raw(_ context.Context, in *pb.HelloReqest) (*pb.HelloReply, error) {
+//	    // do the actual work
+//	}
+//
+// The protoMessage[T] in the type of WrapWithMemoizer is an implementation
+// detail; it should be read “Res is a [proto.Message] and also a *T for some T.”
+// It exists to allow a zero value of type T to be created without having to use
+// reflection.
 func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 	m Memoizer, f Func[Req, Res],
 ) Func[Req, Res] {
