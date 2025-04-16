@@ -91,7 +91,7 @@ func Wrap[T any, Req proto.Message, Res protoMessage[T]](
 // WrapWithMemoizer returns a memoized version of f using the passed [Memoizer].
 // The type should normally be inferred; for example, given:
 //
-//	var myFunc func(ctx context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
+//	var myFunc func(context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
 //
 // MyFunc can be memoized by simply saying:
 //
