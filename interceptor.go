@@ -26,6 +26,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// ErrNotProto is sent to the [Errer] if the functions intercepted by
+// [Intercept] or [InterceptWithMemoizer] are called with something that is not
+// a [proto.Message].
+var ErrNotProto = errors.New("not a proto")
+
 // Intercept is a [grpc.UnaryClientInterceptor] that memoizes gRPC clients.
 // It uses the passed [Cache] with a package-default memoizer (see [New].)
 //
@@ -85,12 +90,12 @@ func InterceptWithMemoizer(m Memoizer) grpc.UnaryClientInterceptor {
 	) error {
 		protoReq, ok := req.(proto.Message)
 		if !ok {
-			errorf("non-proto req %T", req)
+			errorf("%w: %T", ErrNotProto, req)
 			return invoker(ctx, method, req, reply, cc, callOpts...)
 		}
 		protoReply, ok := reply.(proto.Message)
 		if !ok {
-			errorf("non-proto reply %T", reply)
+			errorf("%w: %T", ErrNotProto, reply)
 			return invoker(ctx, method, req, reply, cc, callOpts...)
 		}
 
