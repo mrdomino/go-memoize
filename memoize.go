@@ -59,34 +59,10 @@ import (
 type Func[Req, Res proto.Message] func(context.Context, Req) (Res, error)
 
 // Wrap returns a memoized version of the [Func] f using the [Cache] c.
-// The type should normally be inferred; for further discussion, see the comment
-// for [WrapWithMemoizer].
-func Wrap[T any, Req proto.Message, Res protoMessage[T]](
-	c Cache, f Func[Req, Res], opts ...Option,
-) Func[Req, Res] {
-	return WrapWithMemoizer(New(c, opts...), f)
-}
-
-// WrapWithMemoizer returns a memoized version of f using the passed [Memoizer].
-// The type should normally be inferred; for example, given:
+// The type should normally be inferred; for further discussion, see
+// [WrapWithMemoizer].
 //
-//	var myFunc func(ctx context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
-//
-// MyFunc can be memoized by simply saying:
-//
-//	memo := Wrap(myMemcache, myFunc)
-//
-// The returned memo function will have the [Func] type:
-//
-//	Func[*pb.RpcRequest, *pb.RpcReply]
-//
-// which corresponds to the raw type:
-//
-//	func(context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
-//
-// This is the same type as that of a gRPC server function with request type
-// RpcRequest and reply type RpcReply. As such, it should be relatively simple
-// to use these wrappers in gRPC server contexts, like so:
+// It should be relatively simple to use this function on a gRPC server like so:
 //
 //	type Server struct {
 //	    pb.UnimplementedFooServer
@@ -106,6 +82,31 @@ func Wrap[T any, Req proto.Message, Res protoMessage[T]](
 //	func (s *Server) SayHello_Raw(_ context.Context, in *pb.HelloReqest) (*pb.HelloReply, error) {
 //	    // do the actual work
 //	}
+func Wrap[T any, Req proto.Message, Res protoMessage[T]](
+	c Cache, f Func[Req, Res], opts ...Option,
+) Func[Req, Res] {
+	return WrapWithMemoizer(New(c, opts...), f)
+}
+
+// WrapWithMemoizer returns a memoized version of f using the passed [Memoizer].
+// The type should normally be inferred; for example, given:
+//
+//	var myFunc func(ctx context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
+//
+// MyFunc can be memoized by simply saying:
+//
+//	memo := WrapWithMemoizer(myMemoizer, myFunc)
+//
+// The returned memo function will have the [Func] type:
+//
+//	Func[*pb.RpcRequest, *pb.RpcReply]
+//
+// which corresponds to the raw type:
+//
+//	func(context.Context, *pb.RpcRequest) (*pb.RpcReply, error)
+//
+// This is the same type as that of a gRPC server function with request type
+// RpcRequest and reply type RpcReply.
 //
 // The protoMessage[T] in the type of WrapWithMemoizer is an implementation
 // detail; it should be read “Res is a [proto.Message] and also a *T for some T.”
