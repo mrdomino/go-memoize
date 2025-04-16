@@ -93,7 +93,7 @@ func WithHash(hashType crypto.Hash) HashKeyerOption {
 	}
 }
 
-// NewHashKeyer constructs a HashKeyer with the provided options.
+// NewHashKeyer constructs a [HashKeyer] with the provided options.
 func NewHashKeyer(opts ...HashKeyerOption) *HashKeyer {
 	hk := &HashKeyer{
 		marshal:  proto.MarshalOptions{Deterministic: true},
