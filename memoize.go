@@ -149,10 +149,10 @@ func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 			return f(ctx, req)
 		}
 		res = new(T)
-		if err := GetProto(m, key, res); err == nil {
+		if err := getProto(m, key, res); err == nil {
 			return
 		} else if !errors.Is(err, ErrCacheMiss) {
-			errorf("GetProto(%q): %w", key, err)
+			errorf("getProto(%q): %w", key, err)
 		}
 
 		res, err = f(ctx, req)
@@ -160,12 +160,12 @@ func WrapWithMemoizer[T any, Req proto.Message, Res protoMessage[T]](
 			return res, err
 		}
 
-		if err := AddProto(
+		if err := addProto(
 			m, key, res,
 			expiration(ctx, req, res),
 			flags(ctx, req, res),
 		); err != nil && !errors.Is(err, ErrNotStored) {
-			errorf("AddProto(%q): %w", key, err)
+			errorf("addProto(%q): %w", key, err)
 		}
 		return
 	}

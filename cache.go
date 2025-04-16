@@ -35,10 +35,10 @@ type Cache interface {
 	Get(string) (*Item, error)
 }
 
-// AddProto combines proto serialization with caching, allowing callers to
+// addProto combines proto serialization with caching, allowing callers to
 // early-return in one place from success or failure of storing a proto message
 // in a cache.
-func AddProto(cache Cache, key string, m proto.Message, expiration int32, flags uint32) error {
+func addProto(cache Cache, key string, m proto.Message, expiration int32, flags uint32) error {
 	buf, err := proto.Marshal(m)
 	if err != nil {
 		return err
@@ -51,10 +51,10 @@ func AddProto(cache Cache, key string, m proto.Message, expiration int32, flags 
 	})
 }
 
-// GetProto combines cache retrieval with proto deserialization, allowing
+// getProto combines cache retrieval with proto deserialization, allowing
 // callers to early-return from success or failure of a complete load/unmarshal
 // operation.
-func GetProto(cache Cache, key string, m proto.Message) error {
+func getProto(cache Cache, key string, m proto.Message) error {
 	item, err := cache.Get(key)
 	if err != nil {
 		return err

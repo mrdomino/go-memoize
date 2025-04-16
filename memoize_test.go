@@ -122,18 +122,18 @@ func TestWrap_Errors(t *testing.T) {
 		{
 			name:     "cache.Get error is reported",
 			getErr:   true,
-			wantErrs: []string{"GetProto"},
+			wantErrs: []string{"getProto"},
 		},
 		{
 			name:     "cache.Add error is reported",
 			addErr:   true,
-			wantErrs: []string{"AddProto"},
+			wantErrs: []string{"addProto"},
 		},
 		{
 			name:     "add & get errors are reported",
 			addErr:   true,
 			getErr:   true,
-			wantErrs: []string{"GetProto", "AddProto"},
+			wantErrs: []string{"getProto", "addProto"},
 		},
 	}
 	for _, tt := range tests {

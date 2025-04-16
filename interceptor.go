@@ -99,20 +99,20 @@ func InterceptWithMemoizer(m Memoizer) grpc.UnaryClientInterceptor {
 			errorf("Key(%v): %w", req, err)
 			return invoker(ctx, method, req, reply, cc, callOpts...)
 		}
-		if err := GetProto(m, key, protoReply); err == nil {
+		if err := getProto(m, key, protoReply); err == nil {
 			return nil
 		} else if !errors.Is(err, ErrCacheMiss) {
-			errorf("GetProto(%q): %w", key, err)
+			errorf("getProto(%q): %w", key, err)
 		}
 		if err := invoker(ctx, method, req, reply, cc, callOpts...); err != nil {
 			return err
 		}
-		if err := AddProto(
+		if err := addProto(
 			m, key, protoReply,
 			expiration(ctx, protoReq, protoReply),
 			flags(ctx, protoReq, protoReply),
 		); err != nil && !errors.Is(err, ErrNotStored) {
-			errorf("AddProto(%q): %w", key, err)
+			errorf("addProto(%q): %w", key, err)
 		}
 		return nil
 	}
