@@ -102,5 +102,5 @@ func (*NilCache) Add(*Item) error {
 }
 
 func (*NilCache) Get(string) (*Item, error) {
-	return nil, errors.ErrUnsupported
+	return nil, ErrCacheMiss
 }
