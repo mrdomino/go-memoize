@@ -76,6 +76,9 @@ func (c *LocalCache) Get(key string) (*Item, error) {
 		c.lock.Lock()
 		defer c.lock.Unlock()
 		item, ok = c.data[key]
+		if !ok {
+			return nil, ErrCacheMiss
+		}
 		if item.Expiration != 0 && time.Unix(int64(item.Expiration), 0).Before(now) {
 			delete(c.data, key)
 			return nil, ErrCacheMiss
