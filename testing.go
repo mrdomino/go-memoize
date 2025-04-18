@@ -31,7 +31,7 @@ import (
 type LocalCache struct {
 	Full, Down atomic.Bool
 
-	advancedTime time.Duration
+	advancedTime atomic.Int64
 
 	lock sync.RWMutex
 	data map[string]*Item
@@ -86,16 +86,12 @@ func (c *LocalCache) Get(key string) (*Item, error) {
 
 // Now implements [time.Now] with the skew applied by [LocalCache.AdvanceTime].
 func (c *LocalCache) Now() time.Time {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return time.Now().Add(c.advancedTime)
+	return time.Now().Add(time.Duration(c.advancedTime.Load()))
 }
 
 // AdvanceTime advances this cache’s clock by the passed duration.
 func (c *LocalCache) AdvanceTime(d time.Duration) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.advancedTime += d
+	c.advancedTime.Add(int64(d))
 }
 
 // NilCache is a cache that never stores or retrieves anything.
