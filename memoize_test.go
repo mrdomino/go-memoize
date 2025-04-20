@@ -162,6 +162,29 @@ func TestWrap_Errors(t *testing.T) {
 	}
 }
 
+func TestWrap_NilCache(t *testing.T) {
+	ctx := t.Context()
+	calls, origFunc := calledFunc()
+	var res *wrapperspb.StringValue
+	var errs []error
+	var err error
+
+	memo := Wrap(NilCache, origFunc, WithErrorFunc(func(err error) {
+		errs = append(errs, err)
+	}))
+
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, "1", res.GetValue())
+	assert.Equal(t, 1, *calls)
+	res, err = memo(ctx, wrapperspb.UInt64(1))
+	require.NoError(t, err)
+	assert.Equal(t, "1", res.GetValue())
+	assert.Equal(t, 2, *calls)
+
+	assert.Empty(t, errs)
+}
+
 func TestWrap_KeyFunc(t *testing.T) {
 	cache := NewLocalCache()
 	origFunc := func(context.Context, *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {

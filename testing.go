@@ -100,13 +100,26 @@ func (c *LocalCache) AdvanceTime(d time.Duration) {
 	c.advancedTime.Add(int64(d))
 }
 
-// NilCache is a cache that never stores or retrieves anything.
-type NilCache struct{}
+// NilCache is a [Cache] that never stores or retrieves anything.
+//
+// Gets fail with [ErrCacheMiss], and Adds fail with [ErrNotStored]. As both of
+// these errors are ignored by the error handling logic in this library, this
+// means a function wrapped with NilCache will report no errors.
+//
+// This is sort of lying, in that [ErrNotStored] from [memcache.Client.Add] is
+// supposed to only be returned if there already was a value for that key in
+// the cache. But it is not hard to imagine a cache that winds up behaving like
+// this in practice on some pathological workload, say getting an Add for the
+// same key from elsewhere before every Add, but then having that key evicted
+// before every Get.
+var NilCache = (*nilCache)(nil)
 
-func (*NilCache) Add(*Item) error {
-	return errors.ErrUnsupported
+type nilCache struct{}
+
+func (*nilCache) Add(*Item) error {
+	return ErrNotStored
 }
 
-func (*NilCache) Get(string) (*Item, error) {
+func (*nilCache) Get(string) (*Item, error) {
 	return nil, ErrCacheMiss
 }

@@ -23,6 +23,17 @@ import (
 
 type Item = memcache.Item
 
+// These two reexported errors from [memcache] are treated specially by this
+// library, in that ErrCacheMiss from a [Cache] Get — and ErrNotStored from an
+// Add — are ignored by the error handling logic in this package, as neither
+// of them indicates an erroneous condition.
+//
+// [memcache.ErrCacheMiss] is returned by Get if there was no item at the
+// requested key.
+//
+// [memcache.ErrNotStored] is returned in different cases in [memcache.Client],
+// but for our purposes only its return from Add is relevant: this happens when
+// there is already a value stored at the requested key.
 var (
 	ErrCacheMiss = memcache.ErrCacheMiss
 	ErrNotStored = memcache.ErrNotStored
