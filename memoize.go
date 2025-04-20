@@ -74,6 +74,7 @@ type Func[Req, Res proto.Message] func(context.Context, Req) (Res, error)
 //	    s.memoSayHello = Wrap(cache, func(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 //	        return s.SayHello_Raw(ctx, in)
 //	    })
+//	}
 //
 //	func (s *Server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 //	    return s.memoSayHello(ctx, in)
