@@ -41,6 +41,13 @@ limitations under the License.
 // corresponds to [Wrap]; or [InterceptWithMemoizer], which corresponds to
 // [WrapWithMemoizer].
 //
+// This library generally assumes that the wrapped function’s inputs (but not
+// necessarily its outputs) are trusted, e.g. not user-generated. The full
+// inputs are not stored in the cache entry, so if two different inputs hash to
+// the same key, this can poison the cache. (To emphasize this point, the
+// default key function uses [crypto.SHA1] as its hash, and SHA-1 has known
+// collisions on untrusted inputs.)
+//
 // [proto serialization is not canonical]: https://protobuf.dev/programming-guides/serialization-not-canonical/
 package memoize
 
