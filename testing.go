@@ -28,6 +28,9 @@ import (
 // LocalCache is a test-only in-memory [Cache]. Stores always succeed unless
 // Full is set to true. Gets always succeed if there is an unexpired [Item] at
 // that key unless Down is set to true.
+//
+// This type should be constructed via [NewLocalCache] as it contains an
+// unexported map field.
 type LocalCache struct {
 	Full, Down atomic.Bool
 
