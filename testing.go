@@ -116,10 +116,5 @@ var NilCache = (*nilCache)(nil)
 
 type nilCache struct{}
 
-func (*nilCache) Add(*Item) error {
-	return ErrNotStored
-}
-
-func (*nilCache) Get(string) (*Item, error) {
-	return nil, ErrCacheMiss
-}
+func (*nilCache) Add(*Item) error           { return ErrNotStored }
+func (*nilCache) Get(string) (*Item, error) { return nil, ErrCacheMiss }
